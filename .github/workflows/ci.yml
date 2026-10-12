@@ -1,0 +1,82 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.22", "1.23"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test -race ./...
+
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: build the binary
+        run: go build -o k8s-node-taint-audit ./cmd/k8s-node-taint-audit
+
+      - name: report on the bundled snapshot
+        run: ./k8s-node-taint-audit --from-file examples/cluster.yaml --suggest
+
+      - name: every rule fires on the snapshot
+        run: |
+          ./k8s-node-taint-audit --from-file examples/cluster.yaml --format json > report.json
+          for rule in unused-taint orphan-toleration blanket-toleration noexecute-forever; do
+            count=$(jq --arg r "$rule" '[.findings[] | select(.rule == $r)] | length' report.json)
+            echo "$rule: $count"
+            [ "$count" -ge 1 ] || { echo "rule $rule did not fire"; exit 1; }
+          done
+
+      - name: --fail-on exits 1 on a hit and 0 when clean
+        run: |
+          set +e
+          ./k8s-node-taint-audit --from-file examples/cluster.yaml --fail-on unused-taint >/dev/null
+          hit=$?
+          ./k8s-node-taint-audit --from-file examples/cluster.yaml \
+            --ignore-taint dedicated=gpu --fail-on unused-taint >/dev/null
+          clean=$?
+          set -e
+          echo "hit=$hit clean=$clean"
+          [ "$hit" -eq 1 ] || { echo "--fail-on should exit 1 when a rule fires"; exit 1; }
+          [ "$clean" -eq 0 ] || { echo "--ignore-taint should silence the rule"; exit 1; }

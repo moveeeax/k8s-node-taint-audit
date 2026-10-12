@@ -1,0 +1,134 @@
+## A captured snapshot of a small cluster, with one of every problem the audit
+## reports. Run it with:
+##   k8s-node-taint-audit --from-file examples/cluster.yaml
+apiVersion: v1
+kind: List
+items:
+  # Tainted in March for a GPU job that has since been deleted. Nothing in the
+  # cluster tolerates it, so 16 cores and 64Gi take no pods at all.
+  - apiVersion: v1
+    kind: Node
+    metadata:
+      name: ip-10-0-1-11
+    spec:
+      taints:
+        - key: dedicated
+          value: gpu
+          effect: NoSchedule
+    status:
+      allocatable:
+        cpu: "16"
+        memory: 64Gi
+
+  # A real spot pool: tainted on purpose, and the batch workload tolerates it.
+  - apiVersion: v1
+    kind: Node
+    metadata:
+      name: ip-10-0-2-24
+    spec:
+      taints:
+        - key: spot
+          value: "true"
+          effect: NoSchedule
+        - key: workload
+          value: streaming
+          effect: NoExecute
+    status:
+      allocatable:
+        cpu: "8"
+        memory: 32Gi
+
+  - apiVersion: v1
+    kind: Node
+    metadata:
+      name: ip-10-0-3-7
+    spec: {}
+    status:
+      allocatable:
+        cpu: "8"
+        memory: 32Gi
+
+  # Tolerates the spot taint and nothing else: this is what correct looks like.
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: batch-runner-6c7f9d-abcde
+      namespace: batch
+      ownerReferences:
+        - kind: ReplicaSet
+          name: batch-runner-6c7f9d
+          controller: true
+    spec:
+      tolerations:
+        - key: spot
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+
+  # Second replica of the same Deployment: two pods, one tolerating workload.
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: batch-runner-6c7f9d-fghij
+      namespace: batch
+      ownerReferences:
+        - kind: ReplicaSet
+          name: batch-runner-6c7f9d
+          controller: true
+    spec:
+      tolerations:
+        - key: spot
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+
+  # The node pool called "memory" was decommissioned last year. This toleration
+  # survived the migration and now matches nothing: orphan-toleration.
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: cache-warmer-55d8b7-klmno
+      namespace: platform
+      ownerReferences:
+        - kind: ReplicaSet
+          name: cache-warmer-55d8b7
+          controller: true
+    spec:
+      tolerations:
+        - key: memory-optimized
+          operator: Exists
+          effect: NoSchedule
+
+  # A monitoring agent with the classic copy-pasted blanket toleration: empty
+  # key plus operator Exists, so it also tolerates not-ready and unreachable
+  # and will sit happily on a dead node: blanket-toleration.
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: node-agent-pqrst
+      namespace: monitoring
+      ownerReferences:
+        - kind: DaemonSet
+          name: node-agent
+          controller: true
+    spec:
+      tolerations:
+        - operator: Exists
+
+  # Tolerates the streaming NoExecute taint with no tolerationSeconds, so when
+  # the node goes unreachable this pod is never evicted: noexecute-forever.
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: streaming-ingest-0
+      namespace: streaming
+      ownerReferences:
+        - kind: StatefulSet
+          name: streaming-ingest
+          controller: true
+    spec:
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: streaming
+          effect: NoExecute

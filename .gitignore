@@ -1,0 +1,18 @@
+# Built binary at the repo root only: a bare name would also match the
+# cmd/k8s-node-taint-audit/ source directory and drop its main.go.
+/k8s-node-taint-audit
+/dist/
+/report.json
+
+# Test and coverage artifacts
+/coverage.out
+/*.test
+
+# Editors and OS noise
+.idea/
+.vscode/
+.DS_Store
+
+# Fixtures are part of the test suite, never ignored.
+!examples/**
+!testdata/**
