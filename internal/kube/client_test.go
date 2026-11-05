@@ -10,7 +10,7 @@ import (
 )
 
 func TestFetchListsNodesAndPodsInEveryNamespace(t *testing.T) {
-	cs := fake.NewSimpleClientset(
+	cs := fake.NewClientset(
 		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker-1"}},
 		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker-2"}},
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "api", Namespace: "default"}},
@@ -30,7 +30,7 @@ func TestFetchListsNodesAndPodsInEveryNamespace(t *testing.T) {
 }
 
 func TestFetchOnEmptyClusterIsNotAnError(t *testing.T) {
-	nodes, pods, err := Fetch(context.Background(), fake.NewSimpleClientset())
+	nodes, pods, err := Fetch(context.Background(), fake.NewClientset())
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
