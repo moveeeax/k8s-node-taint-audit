@@ -1,7 +1,7 @@
 # k8s-node-taint-audit
 
 [![ci](https://github.com/moveeeax/k8s-node-taint-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/moveeeax/k8s-node-taint-audit/actions/workflows/ci.yml)
-[![go](https://img.shields.io/badge/go-1.22%2B-00ADD8)](https://go.dev/dl/)
+[![go](https://img.shields.io/badge/go-1.26%2B-00ADD8)](https://go.dev/dl/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Audit Kubernetes node taints against the tolerations your workloads actually declare — in both
